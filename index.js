@@ -1,5 +1,7 @@
 const { ApolloServer } = require('@apollo/server')
 const { startStandaloneServer } = require('@apollo/server/standalone')
+// Load the full build of lodash.
+const _ = require('lodash');
 
 let authors = [
   {
@@ -112,10 +114,16 @@ const typeDefs = `
     genres: [String!]!
   }
 
+  type AuthorAndBookCount {
+    name: String!
+    bookCount: Int!
+  }
+
   type Query {
     bookCount: Int!
     authorCount: Int!
     allBooks: [Book!]!
+    allAuthors: [AuthorAndBookCount!]!
   }
 `
 
@@ -123,7 +131,21 @@ const resolvers = {
   Query: {
     bookCount: () => books.length,
     authorCount: () => authors.length,
-    allBooks: () => books
+    allBooks: () => books,
+    allAuthors: () => {
+      const bookCountByAuthor = _.countBy(books.map(book => book.author))
+      const uniqueAuthors = _.keys(bookCountByAuthor)
+      const bookCounts = _.values(bookCountByAuthor)
+
+      return uniqueAuthors.reduce(
+        (result, author, index) => {
+          result.push({
+            name: author,
+            bookCount: bookCounts[index]
+          })
+          return result
+        }, [])
+    }
   }
 }
 
