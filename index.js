@@ -111,7 +111,7 @@ const typeDefs = `
   type Book {
     title: String!
     published: Int!
-    author: String!
+    author: Author!
     id: ID!
     genres: [String!]!
   }
@@ -171,6 +171,11 @@ const resolvers = {
         }, [])
 
       return authorAndCountObj.find(authorAndBookCount => authorAndBookCount.name === root.name).bookCount
+    }
+  },
+  Book: {
+    author: (root) => {
+      return authors.find(author => author.name === root.author)
     }
   },
   Mutation: {
