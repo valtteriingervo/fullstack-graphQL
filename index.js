@@ -2,7 +2,24 @@ const { ApolloServer } = require('@apollo/server')
 const { startStandaloneServer } = require('@apollo/server/standalone')
 // Load the full build of lodash.
 const _ = require('lodash');
-const { v1: uuid } = require('uuid')
+const { GraphQLError } = require('graphql')
+
+const mongoose = require('mongoose')
+mongoose.set('strictQuery', false)
+const Author = require('./models/author')
+const Book = require('./models/book')
+require('dotenv').config()
+
+const MONGODB_URI = process.env.MONGODB_URI
+
+mongoose.connect(MONGODB_URI)
+  .then(() => {
+    console.log('connected to MongoDB')
+  })
+  .catch((error) => {
+    console.log('error connection to MongoDB:', error.message)
+  })
+
 
 let authors = [
   {
@@ -143,19 +160,24 @@ const typeDefs = `
 
 const resolvers = {
   Query: {
-    bookCount: () => books.length,
-    authorCount: () => authors.length,
+    bookCount: async () => Book.collection.countDocuments(),
+    authorCount: async () => Author.collection.countDocuments(),
 
-    allBooks: (root, args) => {
+    allBooks: async (root, args) => {
+      /*
       return books
         .filter(book => args.author ? (book.author === args.author) : book)
         .filter(book => args.genre ? book.genres.includes(args.genre) : book)
+      */
+      return Book.find({}).populate('author')
     },
 
-    allAuthors: () => authors
-
+    allAuthors: async () => {
+      return Author.find({})
+    }
   },
   Author: {
+    // Part1 - BookCount doesnt have to work
     bookCount: (root) => {
       const bookCountByAuthor = _.countBy(books.map(book => book.author))
       const uniqueAuthors = _.keys(bookCountByAuthor)
@@ -179,21 +201,40 @@ const resolvers = {
     }
   },
   Mutation: {
-    addBook: (root, args) => {
-      // Add author if there isnt one with the name given
-      if (!authors.find(author => author.name === args.author)) {
-        authors = authors.concat({
-          name: args.author,
-          id: uuid(),
-          born: null
+    addBook: async (root, args) => {
+      console.log('In addBook mutation!')
+      try {
+        // If author doesn't yet exist, add it
+        let author = await Author.findOne({ name: args.author })
+        if (!author) {
+          console.log('Creatin a new author')
+          author = new Author({ name: args.author })
+          console.log('New author', author)
+          await author.save()
+        }
+        // Create the book
+        const book = new Book({
+          title: args.title,
+          published: args.published,
+          author: author._id, // Reference to the author id
+          genres: args.genres
+        })
+
+        await book.save()
+        return book
+
+      } catch (error) {
+        console.log(error)
+        throw new GraphQLError('Saving book failed', {
+          extensions: {
+            code: 'BAD_USER_INPUT',
+            invalidArgs: args.name,
+            error
+          }
         })
       }
-
-      const book = { ...args, id: uuid() }
-      books = books.concat(book)
-      return book
     },
-
+    // Part1- editAuthor doesn't have to work
     editAuthor: (root, args) => {
       const author = authors.find(author => author.name === args.name)
       if (!author) {
