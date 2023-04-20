@@ -105,7 +105,7 @@ const resolvers = {
 
       } catch (error) {
         console.log(error)
-        throw new GraphQLError('Saving book failed', {
+        throw new GraphQLError('Saving book failed - Please check the book title (min. 5 char) and author length (min. 4 char)', {
           extensions: {
             code: 'BAD_USER_INPUT',
             invalidArgs: args.name,
@@ -120,7 +120,7 @@ const resolvers = {
       try {
         await author.save()
       } catch (error) {
-        throw new GraphQLError('Editing number failed', {
+        throw new GraphQLError('Editing author failed', {
           extensions: {
             code: 'BAD_USER_INPUT',
             invalidArgs: args.name,
