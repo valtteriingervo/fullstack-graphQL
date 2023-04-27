@@ -28,6 +28,7 @@ const resolvers = {
     bookCount: async (root) => await Book.find({ author: root.id }).countDocuments()
   },
   Mutation: {
+    // Todo: Add publish the new book to subscribers
     addBook: async (root, args, context) => {
       const currentUser = context.currentUser
       if (!currentUser) {
@@ -56,6 +57,9 @@ const resolvers = {
         })
 
         await book.save()
+
+        pubsub.publish('BOOK_ADDED', { bookAdded: book.populate('author') })
+
         return book.populate('author')
 
       } catch (error) {
@@ -129,7 +133,12 @@ const resolvers = {
 
       return { value: jwt.sign(userForToken, process.env.JWT_SECRET) }
     },
-  }
+  },
+  Subscription: {
+    bookAdded: {
+      subscribe: () => pubsub.asyncIterator('BOOK_ADDED')
+    }
+  },
 }
 
 module.exports = resolvers
